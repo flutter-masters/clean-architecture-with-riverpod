@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/firebase_auth_service.dart';
+import '../../shared/dialogs/error_dialog.dart';
+import '../../shared/dialogs/loader_dialog.dart';
+import '../../shared/extensions/auth_failure_x.dart';
 import '../../shared/extensions/build_context.dart';
 import '../../shared/validators/form_validator.dart';
 import '../../shared/widgets/flutter_masters_rich_text.dart';
+import '../home/home_screen.dart';
 import '../sign_in/sign_in_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -16,14 +21,35 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   late final formKey = GlobalKey<FormState>();
+  final firebaseService = FirebaseAuthService.instance;
+
   var userName = '';
   var email = '';
   var password = '';
 
-  void signUp() {
-    if (formKey.currentState!.validate()) {
+  Future<void> signUp() async {
+    if (!formKey.currentState!.validate()) {
       return;
     }
+    final failure = await showLoader(
+      context,
+      firebaseService.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (failure != null) {
+      final errorData = failure.errorData;
+      return ErrorDialog.show(
+        context,
+        title: errorData.message,
+        icon: errorData.icon,
+      );
+    }
+    context.pushNamedAndRemoveUntil(HomeScreen.route);
   }
 
   @override
