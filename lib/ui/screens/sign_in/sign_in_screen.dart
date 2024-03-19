@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/firebase_auth_service.dart';
+import '../../shared/dialogs/error_dialog.dart';
+import '../../shared/dialogs/loader_dialog.dart';
+import '../../shared/extensions/auth_failure_x.dart';
 import '../../shared/extensions/build_context.dart';
 import '../../shared/validators/form_validator.dart';
 import '../../shared/widgets/flutter_masters_rich_text.dart';
@@ -17,14 +21,34 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   late final formKey = GlobalKey<FormState>();
+  final firebaseService = FirebaseAuthService.instance;
   var email = '';
   var password = '';
 
-  void signIn() {
+  Future<void> signIn() async {
     if (!formKey.currentState!.validate()) {
       return;
     }
-    context.pushNamed(HomeScreen.route);
+    final failure = await showLoader(
+      context,
+      firebaseService.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+    if (failure != null) {
+      final errorData = failure.errorData;
+      return ErrorDialog.show(
+        context,
+        title: errorData.message,
+        icon: errorData.icon,
+      );
+    }
+    context.pushNamedAndRemoveUntil(HomeScreen.route);
   }
 
   @override
