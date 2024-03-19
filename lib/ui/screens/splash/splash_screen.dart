@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/firebase_auth_service.dart';
 import '../../shared/extensions/build_context.dart';
 import '../auth/auth_screen.dart';
+import '../home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,7 +19,13 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     Future<void>.delayed(
       const Duration(seconds: 3),
-      () => context.pushReplacementNamed(AuthScreen.route),
+      () {
+        final route = switch (FirebaseAuthService.instance.sessionActive) {
+          true => HomeScreen.route,
+          false => AuthScreen.route,
+        };
+        return context.pushReplacementNamed<void>(route);
+      },
     );
     super.initState();
   }
