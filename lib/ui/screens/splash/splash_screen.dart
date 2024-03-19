@@ -1,6 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../services/firebase_auth_service.dart';
+import '../../../services/auth_service.dart';
 import '../../shared/extensions/build_context.dart';
 import '../auth/auth_screen.dart';
 import '../home/home_screen.dart';
@@ -20,7 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Future<void>.delayed(
       const Duration(seconds: 3),
       () {
-        final route = switch (FirebaseAuthService.instance.sessionActive) {
+        final route = switch (AuthService(FirebaseAuth.instance).isSignedIn) {
           true => HomeScreen.route,
           false => AuthScreen.route,
         };

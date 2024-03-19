@@ -1,6 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../services/firebase_auth_service.dart';
+import '../../../services/auth_service.dart';
 import '../../shared/dialogs/error_dialog.dart';
 import '../../shared/dialogs/loader_dialog.dart';
 import '../../shared/extensions/auth_failure_x.dart';
@@ -21,7 +22,7 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   late final formKey = GlobalKey<FormState>();
-  final firebaseService = FirebaseAuthService.instance;
+  final authService = AuthService(FirebaseAuth.instance);
   var email = '';
   var password = '';
 
@@ -31,7 +32,7 @@ class _SignInScreenState extends State<SignInScreen> {
     }
     final failure = await showLoader(
       context,
-      firebaseService.signInWithEmailAndPassword(
+      authService.signIn(
         email: email,
         password: password,
       ),
