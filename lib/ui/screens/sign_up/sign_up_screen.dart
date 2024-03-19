@@ -21,7 +21,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   var password = '';
 
   void signUp() {
-    if (formKey.currentState!.validate()) {
+    if (!formKey.currentState!.validate()) {
       return;
     }
   }
