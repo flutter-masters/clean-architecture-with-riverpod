@@ -1,19 +1,24 @@
-sealed class AuthFailure {}
+enum SignInAuthFailure {
+  network('network-request-failed'),
+  userNotFound('user-not-found'),
+  invalidEmail('invalid-email'),
+  wrongPassword('wrong-password'),
+  userDisabled('user-disabled'),
+  unknown(),
+  ;
 
-class NetworkFailure extends AuthFailure {}
+  const SignInAuthFailure([this.code]);
+  final String? code;
+}
 
-class CreateUserFailure extends AuthFailure {}
+enum SignUpAuthFailure {
+  network('network-request-failed'),
+  emailAlreadyInUse('email-already-in-use'),
+  invalidEmail('invalid-email'),
+  weakPassword('weak-password'),
+  unknown(),
+  ;
 
-class UserNotFoundFailure extends AuthFailure {}
-
-class EmailExistFailure extends AuthFailure {}
-
-class WeakPasswordFailure extends AuthFailure {}
-
-class InvalidEmailFailure extends AuthFailure {}
-
-class InvalidCredentialsFailure extends AuthFailure {}
-
-class UserDisableFailure extends AuthFailure {}
-
-class UnknownFailure extends AuthFailure {}
+  const SignUpAuthFailure([this.code]);
+  final String? code;
+}

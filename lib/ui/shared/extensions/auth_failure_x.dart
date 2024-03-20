@@ -2,41 +2,46 @@ import 'package:flutter/material.dart';
 
 import '../../../failures/auth_failure.dart';
 
-extension AuthFailureX on AuthFailure {
+extension SignInAuthFailureX on SignInAuthFailure {
   ({IconData icon, String message}) get errorData => switch (this) {
-        NetworkFailure() => (
+        SignInAuthFailure.network => (
             icon: Icons.wifi_off,
             message: 'There was a problem with the network connection',
           ),
-        CreateUserFailure() => (
-            icon: Icons.person_add_disabled,
-            message: 'Failed to create user.',
-          ),
-        UserNotFoundFailure() => (
+        SignInAuthFailure.userNotFound => (
             icon: Icons.person_outline,
             message: 'User not found.',
           ),
-        EmailExistFailure() => (
+        SignInAuthFailure.wrongPassword => (
             icon: Icons.mark_email_unread_outlined,
-            message: 'The email provided already exists.',
+            message: 'Invalid credentials',
           ),
-        WeakPasswordFailure() => (
-            icon: Icons.no_encryption_gmailerrorred_outlined,
-            message: 'The password provided is too weak.',
-          ),
-        InvalidEmailFailure() => (
-            icon: Icons.mark_email_unread_outlined,
-            message: 'The email provided is invalid.',
-          ),
-        InvalidCredentialsFailure() => (
-            icon: Icons.no_encryption_gmailerrorred_outlined,
-            message: 'Invalid credentials.',
-          ),
-        UserDisableFailure() => (
+        SignInAuthFailure.userDisabled => (
             icon: Icons.person_off,
             message: 'Your account has been disabled.'
           ),
-        UnknownFailure() => (
+        _ => (
+            icon: Icons.error_outline,
+            message: 'Something went wrong.',
+          ),
+      };
+}
+
+extension SignUpAuthFailureX on SignUpAuthFailure {
+  ({IconData icon, String message}) get errorData => switch (this) {
+        SignUpAuthFailure.network => (
+            icon: Icons.wifi_off,
+            message: 'There was a problem with the network connection',
+          ),
+        SignUpAuthFailure.emailAlreadyInUse => (
+            icon: Icons.mark_email_unread_outlined,
+            message: 'The email provided already exists.',
+          ),
+        SignUpAuthFailure.weakPassword => (
+            icon: Icons.no_encryption_gmailerrorred_outlined,
+            message: 'The password provided is too weak.',
+          ),
+        _ => (
             icon: Icons.error_outline,
             message: 'Something went wrong.',
           ),
