@@ -79,32 +79,33 @@ friendships:
 rules_version = '2';
 service cloud.firestore {
 
+    // Verifica si el usuario está autenticado
     function isAuthenticated() {
         return request.auth != null;
     }
 
-    // Check if a given user ID matches the currently authenticated user
+    // Comprueba si un ID de usuario dado coincide con el usuario actualmente autenticado
     function isCurrentUser(userId) {
         return request.auth.uid == userId;
     }
 
     match /databases/{database}/documents {
-        // Enforce authentication for all reads and writes
+        // Requerir autenticación para todas las lecturas y escrituras
         match /{document=**} {
             allow read, write: if isAuthenticated();
         }
 
-        // Only allow an user to update their own user document
+        // Solo permitir que un usuario actualice su propio documento
         match /users/{userId} {
             allow update: if isCurrentUser(userId);
         }
 
-        // Restrict friendship updates and reads to users within the "users" field
+        // Restringir actualizaciones y lecturas de amistades a usuarios dentro del campo "users"
         match /friendships/{friendshipId} {
             allow read, update: if isAuthenticated() && resource.data.users.indexOf(request.auth.uid) != -1;
         }
 
-        // Restrict alert reads to sender or recipient
+        // Restringir lectura de alertas al remitente o destinatario
         match /alerts/{alertId} {
             allow read: if isAuthenticated() && (isCurrentUser(resource.data.sender) || isCurrentUser(resource.data.recipient));
         }
