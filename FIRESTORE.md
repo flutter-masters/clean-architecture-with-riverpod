@@ -63,7 +63,7 @@ users:
   - uid1234: {username: "johndoe", email: "johndoe@example.com", ...}
   - uid5678: {username: "janedoe", email: "janedoe@example.com", ...}
 
-emergencyAlerts:
+alerts:
   - alert1234: {sender: uid1234, recipient: uid5678, message: "...", ...}
   - alert5678: {sender: uid5678, recipient: uid1234, message: "...", ...}
 
