@@ -64,8 +64,8 @@ users:
   - uid5678: {username: "janedoe", email: "janedoe@example.com", ...}
 
 alerts:
-  - alert1234: {sender: uid1234, recipient: uid5678, message: "...", ...}
-  - alert5678: {sender: uid5678, recipient: uid1234, message: "...", ...}
+  - alert1234: {sender: uid1234, recipient: uid5678, ...}
+  - alert5678: {sender: uid5678, recipient: uid1234, ...}
 
 friendships:
   - friendship1234: {users: [uid1234, uid5678], sender: uid1234, status: "active", ...}
