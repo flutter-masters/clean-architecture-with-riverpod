@@ -89,6 +89,10 @@ service cloud.firestore {
         return request.auth.uid == userId;
     }
 
+    function isFriend(){
+      return request.auth.uid in resource.data.users
+    }
+
     match /databases/{database}/documents {
         // Requerir autenticación para todas las lecturas y escrituras
         match /{document=**} {
@@ -100,9 +104,12 @@ service cloud.firestore {
             allow update: if isCurrentUser(userId);
         }
 
-        // Restringir actualizaciones y lecturas de amistades a usuarios dentro del campo "users"
         match /friendships/{friendshipId} {
-            allow read, update: if request.auth.uid in resource.data.users;
+            // El campo "users" contiene 2 elementos y el ID del usuario autenticado está presente en "users"
+            allow create: if resource.data.users.length == 2 && isFriend();
+
+             // Restringir actualizaciones y lecturas de amistades a usuarios dentro del campo "users"
+            allow read, update: if isFriend();
         }
 
         // Restringir lectura de alertas al remitente o destinatario
