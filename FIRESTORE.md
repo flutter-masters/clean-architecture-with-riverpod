@@ -77,6 +77,7 @@ friendships:
 
 ```firebase
 rules_version = '2';
+rules_version = '2';
 service cloud.firestore {
 
     // Verifica si el usuario está autenticado
@@ -90,7 +91,11 @@ service cloud.firestore {
     }
 
     function isFriend(){
-      return request.auth.uid in resource.data.users
+      return request.auth.uid in resource.data.users;
+    }
+
+    function allowFriendshipCreation(){
+        return request.data.users.length == 2 && request.auth.uid in request.resource.data.users;
     }
 
     match /databases/{database}/documents {
@@ -106,10 +111,13 @@ service cloud.firestore {
 
         match /friendships/{friendshipId} {
             // El campo "users" contiene 2 elementos y el ID del usuario autenticado está presente en "users"
-            allow create: if resource.data.users.length == 2 && isFriend();
+            allow create: if allowFriendshipCreation();
 
-             // Restringir actualizaciones y lecturas de amistades a usuarios dentro del campo "users"
-            allow read, update: if isFriend();
+             // Restringir actualizaciones de amistades a usuarios dentro del campo "users" y en el request no viene el campo "users"
+            allow update: if isFriend() && !("users" in request.resource.data);
+
+            // Restringir lecturas de amistades a usuarios dentro del campo "users"
+            allow read: if isFriend();
         }
 
         // Restringir lectura de alertas al remitente o destinatario
