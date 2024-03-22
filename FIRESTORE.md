@@ -102,7 +102,7 @@ service cloud.firestore {
 
         // Restringir actualizaciones y lecturas de amistades a usuarios dentro del campo "users"
         match /friendships/{friendshipId} {
-            allow read, update: if isAuthenticated() && resource.data.users.indexOf(request.auth.uid) != -1;
+            allow read, update: if isAuthenticated() && request.auth.uid in resource.data.users;
         }
 
         // Restringir lectura de alertas al remitente o destinatario
