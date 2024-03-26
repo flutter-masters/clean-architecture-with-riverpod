@@ -7,7 +7,7 @@ class AppUser {
   });
 
   final String id;
-  final String username;
-  final String email;
+  final String? username;
+  final String? email;
   final String? photoUrl;
 }
