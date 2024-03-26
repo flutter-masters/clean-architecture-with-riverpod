@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'ui/screens/auth/auth_screen.dart';
 import 'ui/screens/home/home_screen.dart';
+import 'ui/screens/search/search_screen.dart';
 import 'ui/screens/sign_in/sign_in_screen.dart';
 import 'ui/screens/sign_up/sign_up_screen.dart';
 import 'ui/screens/splash/splash_screen.dart';
@@ -31,6 +32,7 @@ class MainApp extends StatelessWidget {
           SignInScreen.route: (_) => const SignInScreen(),
           SignUpScreen.route: (_) => const SignUpScreen(),
           HomeScreen.route: (_) => const HomeScreen(),
+          SearchScreen.route: (_) => const SearchScreen(),
         },
       ),
     );
