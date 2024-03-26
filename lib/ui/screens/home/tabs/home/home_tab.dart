@@ -21,10 +21,7 @@ class HomeTab extends StatelessWidget {
                 color: Palette.green,
                 child: InkWell(
                   onLongPress: () {},
-                  child: const Icon(
-                    Icons.sos,
-                    size: 70,
-                  ),
+                  child: const Icon(Icons.sos, size: 70),
                 ),
               ),
             ),

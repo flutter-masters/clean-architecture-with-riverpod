@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../entities/app_user.dart';
 import '../failures/auth_failure.dart';
 
 extension type AuthService(FirebaseAuth auth) {
@@ -46,5 +47,21 @@ extension type AuthService(FirebaseAuth auth) {
     }
   }
 
-  bool get isSignedIn => auth.currentUser != null;
+  bool get isSignedIn => _currentUser != null;
+
+  AppUser? get currentUser {
+    if (_currentUser == null) {
+      return null;
+    }
+    return AppUser(
+      id: _currentUser!.uid,
+      username: _currentUser!.displayName,
+      email: _currentUser!.email,
+      photoUrl: _currentUser!.photoURL,
+    );
+  }
+
+  User? get _currentUser => auth.currentUser;
+
+  Future<void> logout() => auth.signOut();
 }

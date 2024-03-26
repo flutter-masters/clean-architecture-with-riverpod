@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/typedefs.dart';
 import '../entities/app_user.dart';
+import '../extensions/document_snapshot_x.dart';
 
 extension type UsersService(FirebaseFirestore _db) {
   CollectionReference<Json> get _collection => _db.collection('users');
@@ -12,13 +13,7 @@ extension type UsersService(FirebaseFirestore _db) {
       if (!snapshot.exists) {
         return null;
       }
-      final json = snapshot.data()!;
-      return AppUser(
-        id: id,
-        username: json['username'],
-        email: json['email'],
-        photoUrl: json['photoUrl'],
-      );
+      return snapshot.toAppUser();
     } catch (_) {
       return null;
     }
@@ -28,7 +23,7 @@ extension type UsersService(FirebaseFirestore _db) {
     required String userId,
     required String username,
     required String email,
-    required String photoUrl,
+    String? photoUrl,
   }) async {
     try {
       final user = AppUser(
@@ -37,13 +32,12 @@ extension type UsersService(FirebaseFirestore _db) {
         email: email,
         photoUrl: photoUrl,
       );
-      await _collection.doc(userId).set(
-        {
-          'username': user.username,
-          'email': user.email,
-          'photoUrl': user.photoUrl,
-        },
-      );
+      await _collection.doc(userId).set({
+        'id': userId,
+        'username': username,
+        'email': email,
+        'photoUrl': photoUrl,
+      });
       return user;
     } catch (_) {
       return null;

@@ -4,21 +4,86 @@ import '../core/typedefs.dart';
 import '../entities/app_user.dart';
 import '../entities/emergency_alert.dart';
 import '../entities/friendship.dart';
+import '../extensions/document_snapshot_x.dart';
 
 extension type FriendshipsService(FirebaseFirestore _db) {
   CollectionReference<Json> get _collection => _db.collection('friendships');
 
-  Future<List<String>> _getFriendsIds(String userId) async {
-    final snapshot = await _collection
-        .where('status', isEqualTo: FriendshipStatus.active.name)
-        .where('users', arrayContains: userId)
-        .get();
+  Future<Map<String, String>> _friendsIds(String userId) async {
+    try {
+      final snapshot = await _collection
+          .where('status', isEqualTo: FriendshipStatus.active.name)
+          .where('users', arrayContains: userId)
+          .get();
+      final pendingsRequests =
+          snapshot.docs.map((e) => e.toFriendship()).toList();
+      final friendships = <String, String>{};
+      for (var pendingsRequest in pendingsRequests) {
+        final id = pendingsRequest.users.firstWhere((id) => id != userId);
+        friendships.addAll({id: pendingsRequest.id});
+      }
+      return friendships;
+    } catch (_) {
+      return {};
+    }
+  }
 
-    return snapshot.docs
-        .map(
-          (e) => (e['users'] as List<String>).firstWhere((id) => id != userId),
-        )
-        .toList();
+  Future<Map<String, String>> _pendingFriendshipRequestIds(
+    String userId,
+  ) async {
+    try {
+      final snapshot = await _collection
+          .where('status', isEqualTo: FriendshipStatus.pending.name)
+          .where('users', arrayContains: userId)
+          .where('sender', isNotEqualTo: userId)
+          .get();
+      final pendingsRequests =
+          snapshot.docs.map((e) => e.toFriendship()).toList();
+      final friendships = <String, String>{};
+      for (var pendingsRequest in pendingsRequests) {
+        final id = pendingsRequest.users.firstWhere((id) => id != userId);
+        friendships.addAll({id: pendingsRequest.id});
+      }
+      return friendships;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, String>> _pendingFriendshipRequestSendIds(
+    String userId,
+  ) async {
+    try {
+      final snapshot = await _collection
+          .where('status', isEqualTo: FriendshipStatus.pending.name)
+          .where('users', arrayContains: userId)
+          .where('sender', isEqualTo: userId)
+          .get();
+      final pendingsRequests =
+          snapshot.docs.map((e) => e.toFriendship()).toList();
+      final friendships = <String, String>{};
+      for (var pendingsRequest in pendingsRequests) {
+        final id = pendingsRequest.users.firstWhere((id) => id != userId);
+        friendships.addAll({id: pendingsRequest.id});
+      }
+      return friendships;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<List<AppUser>?> _filterUsers(
+    String userId,
+    List<String>? filterIds,
+  ) async {
+    try {
+      final query = _db.collection('users').where('id', whereIn: filterIds);
+      final snapshot = await query.get();
+      final docs = snapshot.docs.where((doc) => doc.id != userId).toList();
+      return docs.map((e) => e.toAppUser()).toList();
+    } catch (_) {
+      return null;
+    }
   }
 
   Stream<EmergencyAlert> onEmergencyAlert(String recipient) {
@@ -30,41 +95,59 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         .snapshots();
 
     return query.expand<EmergencyAlert>(
-      (event) {
-        final doc = event.docs.first;
-        final json = doc.data();
-        return [
-          EmergencyAlert(
-            id: doc.id,
-            sender: json['sender'],
-            recipient: json['recipient'],
-            createdAt: (json['createdAt'] as Timestamp).toDate(),
-          ),
-        ];
-      },
+      (event) => event.docs.map(
+        (doc) {
+          return doc.toEmergencyAlert();
+        },
+      ).toList(),
     );
   }
 
-  Future<List<AppUser>?> getFriends(String userId) async {
+  Future<
+      ({
+        List<AppUser>? friends,
+        Map<String, String>? friendships,
+      })> getFriends(String userId) async {
     try {
-      final friendsIds = await _getFriendsIds(userId);
-
-      final friendsSnapshot =
-          await _db.collection('users').where('id', whereIn: friendsIds).get();
-
-      return friendsSnapshot.docs.where((e) => e.exists).map(
-        (e) {
-          final json = e.data();
-          return AppUser(
-            id: e.id,
-            username: json['username'],
-            email: json['email'],
-            photoUrl: json['photoUrl'],
-          );
-        },
-      ).toList();
+      final friendships = await _friendsIds(userId);
+      final friendsIds = friendships.entries.map((e) => e.key).toList();
+      final query = _db.collection('users').where('id', whereIn: friendsIds);
+      final snapshot = await query.get();
+      return (
+        friends: snapshot.docs
+            .where((e) => e.exists)
+            .map((doc) => doc.toAppUser())
+            .toList(),
+        friendships: friendships,
+      );
     } catch (_) {
-      return null;
+      return (friends: null, friendships: null);
+    }
+  }
+
+  Future<
+      ({
+        List<AppUser>? users,
+        Map<String, String>? friendsIds,
+        Map<String, String>? pendingsRequestsSentIds,
+      })> searchUsers(String userId) async {
+    try {
+      final friendIds = await _friendsIds(userId);
+      final pendingsFriendshipsSentIds = await _pendingFriendshipRequestSendIds(
+        userId,
+      );
+      final users = await _filterUsers(userId, null);
+      return (
+        users: users,
+        friendsIds: friendIds,
+        pendingsRequestsSentIds: pendingsFriendshipsSentIds,
+      );
+    } catch (_) {
+      return (
+        users: null,
+        friendsIds: null,
+        pendingsRequestsSentIds: null,
+      );
     }
   }
 
@@ -75,7 +158,6 @@ extension type FriendshipsService(FirebaseFirestore _db) {
       if (!snapshot.exists) {
         return false;
       }
-
       await ref.set(
         {
           'status': FriendshipStatus.archived.name,
@@ -90,31 +172,40 @@ extension type FriendshipsService(FirebaseFirestore _db) {
     }
   }
 
-  Future<List<Friendship>?> getFriendshipRequests(String userId) async {
+  Future<
+      ({
+        List<AppUser>? users,
+        Map<String, String>? friendships,
+      })> getFriendshipRequests(String userId) async {
     try {
-      final snapshot = await _collection
-          .where('status', isEqualTo: FriendshipStatus.pending.name)
-          .where('users', arrayContains: userId)
-          .where('sender', isNotEqualTo: userId)
-          .get();
-      return snapshot.docs.map((e) => e.toFriendship()).toList();
+      final pendingsRequests = await _pendingFriendshipRequestIds(userId);
+      if (pendingsRequests.isEmpty) {
+        return (users: null, friendships: null);
+      }
+      final friendshipsRequests = await _filterUsers(
+        userId,
+        pendingsRequests.entries.map((e) => e.key).toList(),
+      );
+      return (users: friendshipsRequests, friendships: pendingsRequests);
     } catch (_) {
-      return null;
+      return (users: null, friendships: null);
     }
   }
 
   Future<Friendship?> sendFriendshipRequest({
-    required String senderId,
+    required AppUser sender,
     required String recipientId,
   }) async {
     try {
-      final snapshot =
-          await _collection.where('users', arrayContains: recipientId).get();
+      final snapshot = await _collection
+          .where('users', arrayContains: recipientId)
+          .where('sender', isEqualTo: sender.id)
+          .get();
 
       final docs = snapshot.docs;
-      final data = {
-        'users': [senderId, recipientId],
-        'sender': senderId,
+      final data = <String, dynamic>{
+        'users': [sender.id, recipientId],
+        'sender': sender.id,
         'status': FriendshipStatus.pending.name,
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
@@ -132,12 +223,11 @@ extension type FriendshipsService(FirebaseFirestore _db) {
       ].contains(friendship.status)) {
         return null;
       }
-
       await _collection.doc(friendship.id).set(data, SetOptions(merge: true));
       return Friendship(
         id: friendship.id,
         users: friendship.users,
-        sender: senderId,
+        sender: sender.id,
         status: FriendshipStatus.pending,
         createdAt: friendship.createdAt,
         updatedAt: DateTime.timestamp(),
@@ -154,7 +244,6 @@ extension type FriendshipsService(FirebaseFirestore _db) {
       if (!snapshot.exists) {
         return false;
       }
-
       await ref.set(
         {
           'status': FriendshipStatus.active.name,
@@ -168,6 +257,20 @@ extension type FriendshipsService(FirebaseFirestore _db) {
     }
   }
 
+  Future<bool> rejectFriendshipRequest(String friendshipId) async {
+    try {
+      final ref = _collection.doc(friendshipId);
+      final snapshot = await ref.get();
+      if (!snapshot.exists) {
+        return false;
+      }
+      await ref.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> cancelFriendshipRequest(String friendshipId) async {
     try {
       final ref = _collection.doc(friendshipId);
@@ -175,7 +278,6 @@ extension type FriendshipsService(FirebaseFirestore _db) {
       if (!snapshot.exists) {
         return false;
       }
-
       await ref.set(
         {
           'status': FriendshipStatus.archived.name,
@@ -191,14 +293,14 @@ extension type FriendshipsService(FirebaseFirestore _db) {
 
   Future<bool> sendAlert(String userId) async {
     try {
-      final friendsIds = await _getFriendsIds(userId);
-
+      final friends = await _friendsIds(userId);
+      final friendsIds = friends.entries.map((e) => e.key).toList();
       final batch = _db.batch();
       for (final recipient in friendsIds) {
         batch.set(
           _collection.doc(),
           {
-            'sender': userId,
+            'senderId': userId,
             'recipient': recipient,
             'createdAt': DateTime.now().toIso8601String(),
           },
@@ -209,21 +311,5 @@ extension type FriendshipsService(FirebaseFirestore _db) {
     } catch (_) {
       return false;
     }
-  }
-}
-
-extension DocumentSnapshotX on DocumentSnapshot<Json> {
-  Friendship toFriendship() {
-    return Friendship(
-      id: id,
-      users: this['users'],
-      sender: this['sender'],
-      status: FriendshipStatus.values.firstWhere(
-        (e) => e.name == this['status'],
-        orElse: () => FriendshipStatus.archived,
-      ),
-      createdAt: (this['createdAt'] as Timestamp).toDate(),
-      updatedAt: (this['updatedAt'] as Timestamp).toDate(),
-    );
   }
 }

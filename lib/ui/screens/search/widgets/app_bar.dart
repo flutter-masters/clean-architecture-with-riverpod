@@ -48,9 +48,7 @@ class _SearchAppBarState extends State<SearchAppBar> {
     return AppBar(
       title: TextField(
         controller: _controller,
-        onChanged: (query) => _handleSearch(
-          query.trim(),
-        ),
+        onChanged: (query) => _handleSearch(query.toLowerCase().trim()),
         decoration: InputDecoration(
           hintText: 'Search ...',
           fillColor: Colors.transparent,

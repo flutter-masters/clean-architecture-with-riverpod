@@ -3,6 +3,7 @@ enum SignInAuthFailure {
   userNotFound('user-not-found'),
   invalidEmail('invalid-email'),
   wrongPassword('wrong-password'),
+  invalidCredential('invalid-credential'),
   userDisabled('user-disabled'),
   unknown(),
   ;

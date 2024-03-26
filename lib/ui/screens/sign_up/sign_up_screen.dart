@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../entities/app_user.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/users_service.dart';
 import '../../shared/dialogs/error_dialog.dart';
 import '../../shared/dialogs/loader_dialog.dart';
 import '../../shared/extensions/auth_failure_x.dart';
@@ -23,6 +26,8 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   late final formKey = GlobalKey<FormState>();
   final authService = AuthService(FirebaseAuth.instance);
+  final userService = UsersService(FirebaseFirestore.instance);
+  AppUser? user;
 
   var userName = '';
   var email = '';
@@ -31,6 +36,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> signUp() async {
     if (!formKey.currentState!.validate()) {
       return;
+    }
+    if (user != null) {
+      return registerUserInFirestore();
     }
     final failure = await showLoader(
       context,
@@ -50,7 +58,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
         icon: errorData.icon,
       );
     }
-    context.pushNamedAndRemoveUntil(HomeScreen.route);
+    user = authService.currentUser;
+    return registerUserInFirestore();
+  }
+
+  Future<void> registerUserInFirestore() async {
+    final appUser = await showLoader(
+      context,
+      userService.createUser(
+        userId: user!.id,
+        username: userName,
+        email: email,
+        photoUrl: user?.photoUrl,
+      ),
+    );
+    if (appUser != null) {
+      context.pushNamedAndRemoveUntil(HomeScreen.route);
+    }
   }
 
   @override

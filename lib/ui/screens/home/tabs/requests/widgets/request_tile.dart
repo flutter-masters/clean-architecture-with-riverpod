@@ -7,10 +7,16 @@ class RequestTile extends StatelessWidget {
     super.key,
     required this.onAccept,
     required this.onReject,
+    required this.username,
+    required this.email,
+    required this.photoUrl,
   });
 
   final VoidCallback onAccept;
   final VoidCallback onReject;
+  final String username;
+  final String email;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -18,25 +24,19 @@ class RequestTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       tileColor: Palette.dark,
       leading: const CircleAvatar(),
-      title: const Text('username'),
-      subtitle: const Text('user@email.com'),
+      title: Text(username),
+      subtitle: Text(email),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             onPressed: onAccept,
-            icon: const Icon(
-              Icons.check,
-              color: Palette.green,
-            ),
+            icon: const Icon(Icons.check, color: Palette.green),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 4),
           IconButton(
             onPressed: onAccept,
-            icon: const Icon(
-              Icons.close,
-              color: Palette.pink,
-            ),
+            icon: const Icon(Icons.close, color: Palette.pink),
           ),
         ],
       ),
