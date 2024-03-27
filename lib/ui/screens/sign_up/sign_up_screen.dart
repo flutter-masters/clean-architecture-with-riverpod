@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/result.dart';
 import '../../../entities/app_user.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/users_service.dart';
@@ -38,32 +39,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
     if (user != null) {
-      return registerUserInFirestore();
+      return createUser();
     }
-    final failure = await showLoader(
+    final signUpResult = await showLoader(
       context,
-      authService.signUp(
-        email: email,
-        password: password,
-      ),
+      authService.signUp(email: email, password: password),
     );
     if (!mounted) {
       return;
     }
-    if (failure != null) {
-      final errorData = failure.errorData;
+    final data = switch (signUpResult) {
+      Success(value: final user) => (user: user, failure: null),
+      Error(value: final failure) => (user: user, failure: failure),
+    };
+    if (data.failure != null) {
+      final errorData = data.failure!.errorData;
       return ErrorDialog.show(
         context,
         title: errorData.message,
         icon: errorData.icon,
       );
     }
-    user = authService.currentUser;
-    return registerUserInFirestore();
+    user = data.user;
+    return createUser();
   }
 
-  Future<void> registerUserInFirestore() async {
-    final appUser = await showLoader(
+  Future<void> createUser() async {
+    final result = await showLoader(
       context,
       userService.createUser(
         userId: user!.id,
@@ -72,7 +74,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         photoUrl: user?.photoUrl,
       ),
     );
-    if (appUser != null) {
+    final route = switch (result) {
+      Success() => HomeScreen.route,
+      Error() => null,
+    };
+    if (route != null) {
       context.pushNamedAndRemoveUntil(HomeScreen.route);
     }
   }
