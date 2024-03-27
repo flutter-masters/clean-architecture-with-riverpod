@@ -4,15 +4,34 @@ import 'package:flutter/material.dart';
 
 import '../../../../../services/auth_service.dart';
 import '../../../../../services/friendships_service.dart';
-import '../../../../../services/users_service.dart';
-import '../../../entities/app_user.dart';
+import '../../../core/result.dart';
+import '../../../core/typedefs.dart';
+import '../../../entities/friendship.dart';
+import '../../../failures/failure.dart';
 import '../../shared/dialogs/loader_dialog.dart';
+import '../../shared/validators/form_validator.dart';
 import '../../shared/widgets/user_list.dart';
 import '../../shared/widgets/user_tile.dart';
 import '../home/tabs/requests/widgets/request_tile.dart';
 import 'widgets/app_bar.dart';
 
-enum SearchState { initial, searching, searched }
+sealed class SearchState {
+  const SearchState();
+}
+
+class SearchLoadingState extends SearchState {
+  const SearchLoadingState();
+}
+
+class SearchLoadedState extends SearchState {
+  const SearchLoadedState({required this.friendshipsData});
+  final List<FriendshipsData> friendshipsData;
+}
+
+class SearchLoadErrorState extends SearchState {
+  const SearchLoadErrorState({required this.failure});
+  final Failure failure;
+}
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -23,196 +42,192 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  var loading = true;
-  var state = SearchState.initial;
-  var users = <AppUser>[];
-  var pendingsRequestsSentIds = <String, String>{};
-  var friendsIds = <String, String>{};
-  final friendships = <AppUser>[];
-  final pendingsRequestsIds = <String, String>{};
+  SearchState state = const SearchLoadingState();
 
   final friendshipsService = FriendshipsService(FirebaseFirestore.instance);
-  final authService = AuthService(FirebaseAuth.instance);
-  final usersService = UsersService(FirebaseFirestore.instance);
-  AppUser? currentUser;
+  final userService = AuthService(FirebaseAuth.instance);
+  late final currentUserId = userService.currentUser!.id;
 
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback(loadFriendships);
+    WidgetsBinding.instance.addPostFrameCallback(loadFrienshipRequest);
     super.initState();
   }
 
-  Future<void> loadFriendships(Duration _) async {
-    currentUser ??= await usersService.getUserById(authService.currentUser!.id);
-    final data = await friendshipsService.getFriendshipRequests(
-      currentUser!.id,
+  Future<void> loadFrienshipRequest(Duration _) async {
+    state = const SearchLoadingState();
+    setState(() {});
+    final result = await friendshipsService.getFriendshipRequests(
+      currentUserId,
     );
-    friendships.addAll(data.users ?? []);
-    pendingsRequestsIds.addAll(data.friendships ?? {});
-    loading = false;
-    setState(() {});
-  }
-
-  Future<void> search(String query) async {
-    if (query.isEmpty) {
-      loading = false;
-      state = SearchState.initial;
-      users = [];
-      friendsIds = {};
-      pendingsRequestsSentIds = {};
-      return setState(() {});
-    }
-    loading = true;
-    state = SearchState.searching;
-    setState(() {});
-    final result = await friendshipsService.searchUsers(currentUser!.id);
-    loading = false;
-    state = SearchState.searched;
-    users = (result.users ?? [])
-        .where(
-          (user) =>
-              (user.username ?? '').toLowerCase().contains(query) ||
-              (user.email ?? '').toLowerCase().contains(query),
-        )
-        .toList();
-    friendsIds = result.friendsIds ?? {};
-    pendingsRequestsSentIds = result.pendingsRequestsSentIds ?? {};
-    setState(() {});
-  }
-
-  Widget itemBuilder(BuildContext context, AppUser user) {
-    final userId = user.id;
-    final friend = friendsIds[userId];
-    if (friend != null) {
-      return UserTile(
-        onPressed: () => deletedFriendshipRequest(friend, userId),
-        user: user,
-      );
-    }
-    final pendingRequestId = pendingsRequestsIds[userId];
-    if (pendingRequestId != null) {
-      return RequestTile(
-        onAccept: () => acceptFriendshipRequest(user),
-        onReject: () => rejectFriendshipRequest(user),
-        email: user.email ?? '',
-        username: user.username ?? '',
-        photoUrl: user.photoUrl,
-      );
-    }
-    final pendingsRequestsSentId = pendingsRequestsSentIds[userId];
-    if (pendingsRequestsSentId != null) {
-      return UserTile(
-        onPressed: () => cancelFriendshipRequest(
-          pendingsRequestsSentId,
-          userId,
+    state = switch (result) {
+      Success(value: final friendshipsData) => SearchLoadedState(
+          friendshipsData: friendshipsData,
         ),
-        user: user,
-        trailingIcon: Icons.person_remove,
-      );
-    }
-    return UserTile(
-      onPressed: () => sendFriendshipRequest(userId),
-      user: user,
-      trailingIcon: Icons.person_add_alt_1,
-    );
+      Error(value: final failure) => SearchLoadErrorState(
+          failure: failure,
+        ),
+    };
+    setState(() {});
   }
 
-  Future<void> deletedFriendshipRequest(
-    String friendshipId,
-    String userId,
-  ) async {
-    final deleted = await showLoader(
+  Future<void> searchUser(String email) async {
+    state = const SearchLoadingState();
+    setState(() {});
+    final result = await friendshipsService.searchUsers(currentUserId, email);
+    state = switch (result) {
+      Success(value: final friendshipData) => SearchLoadedState(
+          friendshipsData: [friendshipData],
+        ),
+      Error(value: final failure) => SearchLoadErrorState(failure: failure),
+    };
+    setState(() {});
+  }
+
+  Future<void> acceptFriendshipRequest(FriendshipsData friendshipData) async {
+    final result = await showLoader(
       context,
-      friendshipsService.cancelFriendshipRequest(friendshipId),
+      friendshipsService.acceptFriendshipRequest(friendshipData.friendship!.id),
     );
-    if (deleted) {}
+    friendshipActionResultToState(result, friendshipData);
   }
 
-  Future<void> acceptFriendshipRequest(AppUser user) async {
-    final userId = user.id;
-    final accepted = await showLoader(
+  Future<void> rejectFriendshipRequest(FriendshipsData friendshipData) async {
+    final result = await showLoader(
       context,
-      friendshipsService.acceptFriendshipRequest(pendingsRequestsIds[userId]!),
+      friendshipsService.rejectFriendshipRequest(friendshipData.friendship!.id),
     );
-    if (accepted) {
-      pendingsRequestsIds.remove(userId);
-      friendships.remove(user);
-      setState(() {});
-    }
+    friendshipActionResultToState(result, friendshipData);
   }
 
-  Future<void> rejectFriendshipRequest(AppUser user) async {
-    final userId = user.id;
-    final rejected = await showLoader(
-      context,
-      friendshipsService.rejectFriendshipRequest(pendingsRequestsIds[userId]!),
-    );
-    if (rejected) {
-      pendingsRequestsIds.remove(userId);
-      friendships.remove(user);
-      setState(() {});
-    }
+  void friendshipActionResultToState(
+    Result<void, Failure> result,
+    FriendshipsData friendshipData,
+  ) {
+    final friendshipsData = switch (result) {
+      Success() => [...data]..remove(friendshipData),
+      Error() => data,
+    };
+    state = SearchLoadedState(friendshipsData: friendshipsData);
+    setState(() {});
   }
 
-  Future<void> cancelFriendshipRequest(
-    String friendshipId,
-    String userId,
-  ) async {
-    final canceled = await showLoader(
-      context,
-      friendshipsService.cancelFriendshipRequest(friendshipId),
-    );
-    if (canceled) {
-      pendingsRequestsSentIds.remove(userId);
-      setState(() {});
-    }
-  }
-
-  Future<void> sendFriendshipRequest(String userId) async {
-    final friendship = await showLoader(
+  Future<void> sendFriendshipRequest(FriendshipsData friendshipData) async {
+    final result = await showLoader(
       context,
       friendshipsService.sendFriendshipRequest(
-        sender: currentUser!,
-        recipientId: userId,
+        sender: currentUserId,
+        recipientId: friendshipData.user.id,
       ),
     );
-    if (friendship != null) {
-      pendingsRequestsSentIds.addAll({userId: friendship.id});
-      setState(() {});
-    }
+    final friendshipsData = switch (result) {
+      Success(value: final friendship) => addNewFriendship(
+          friendshipData,
+          friendship,
+        ),
+      Error() => data,
+    };
+    state = SearchLoadedState(friendshipsData: friendshipsData);
+    setState(() {});
   }
+
+  List<FriendshipsData> addNewFriendship(
+    FriendshipsData friendshipData,
+    Friendship friendship,
+  ) {
+    final friendshipsData = [...data];
+    final index = friendshipsData.indexWhere(
+      (f) => f.user.id == friendshipData.user.id,
+    );
+    if (index != -1) {
+      friendshipsData[index] = (
+        user: friendshipsData[index].user,
+        friendship: friendship,
+      );
+    }
+    return friendshipsData;
+  }
+
+  Future<void> cancelFriendshipRequest(FriendshipsData friendshipData) async {
+    final friendship = friendshipData.friendship!;
+    final canceled = await showLoader(
+      context,
+      friendshipsService.cancelFriendshipRequest(friendship.id),
+    );
+    final friendsData = switch (canceled) {
+      Success() => addNewFriendship(
+          friendshipData,
+          Friendship(
+            id: friendship.id,
+            users: friendship.users,
+            sender: friendship.sender,
+            status: FriendshipStatus.archived,
+            createdAt: friendship.createdAt,
+            updatedAt: DateTime.now(),
+          ),
+        ),
+      Error() => data,
+    };
+    state = SearchLoadedState(friendshipsData: friendsData);
+    setState(() {});
+  }
+
+  List<FriendshipsData> get data => switch (state) {
+        SearchLoadedState(friendshipsData: final data) => data,
+        _ => <FriendshipsData>[],
+      };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: SearchAppBar(onSearch: search),
+      appBar: SearchAppBar(onSearch: (email) {
+        if (email.isEmpty) {
+          loadFrienshipRequest(Duration.zero);
+        }
+        if (FormValidator.email(email) == null) {
+          searchUser(email);
+        }
+      }),
       body: switch (state) {
-        SearchState.initial when loading => const Center(
+        SearchLoadingState() => const Center(
             child: CircularProgressIndicator(),
           ),
-        SearchState.initial when friendships.isEmpty => const Center(
-            child: Text("You still don't have friendship request"),
+        SearchLoadedState(friendshipsData: final data) when data.isEmpty =>
+          const Center(child: Text("You still don't have friendship request")),
+        SearchLoadedState(friendshipsData: final data) => UserList(
+            data: data,
+            itemBuilder: (_, friendshipData) {
+              final friendship = friendshipData.friendship;
+              final status = friendship?.status;
+              return switch (status) {
+                null || FriendshipStatus.archived => UserTile(
+                    onPressed: () => sendFriendshipRequest(friendshipData),
+                    user: friendshipData.user,
+                    trailingIcon: Icons.person_add_alt_1_outlined,
+                  ),
+                FriendshipStatus.pending
+                    when friendship?.sender == currentUserId =>
+                  UserTile(
+                    onPressed: () => cancelFriendshipRequest(friendshipData),
+                    user: friendshipData.user,
+                    trailingIcon: Icons.person_remove_alt_1_outlined,
+                  ),
+                FriendshipStatus.pending => RequestTile(
+                    onAccept: () => acceptFriendshipRequest(friendshipData),
+                    onReject: () => rejectFriendshipRequest(friendshipData),
+                    username: friendshipData.user.username ?? '',
+                    email: friendshipData.user.email ?? '',
+                    photoUrl: friendshipData.user.photoUrl,
+                  ),
+                FriendshipStatus.active => UserTile(
+                    onPressed: () => cancelFriendshipRequest(friendshipData),
+                    user: friendshipData.user,
+                  ),
+              };
+            },
           ),
-        SearchState.initial => UserList<AppUser>(
-            data: friendships,
-            itemBuilder: (_, friendship) => RequestTile(
-              onAccept: () => acceptFriendshipRequest(friendship),
-              onReject: () => rejectFriendshipRequest(friendship),
-              username: friendship.username!,
-              email: friendship.email!,
-              photoUrl: friendship.photoUrl,
-            ),
-          ),
-        SearchState.searching => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        SearchState.searched when users.isEmpty => const Center(
-            child: Text("No result found"),
-          ),
-        SearchState.searched => UserList<AppUser>(
-            data: users,
-            itemBuilder: itemBuilder,
-          ),
+        SearchLoadErrorState(failure: final failure) =>
+          Center(child: Text(failure.message)),
       },
     );
   }
