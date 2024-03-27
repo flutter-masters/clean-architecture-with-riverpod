@@ -17,6 +17,7 @@ enum SignUpAuthFailure {
   emailAlreadyInUse('email-already-in-use'),
   invalidEmail('invalid-email'),
   weakPassword('weak-password'),
+  userNotCreate(),
   unknown(),
   ;
 
