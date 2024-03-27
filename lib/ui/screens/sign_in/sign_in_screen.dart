@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/result.dart';
 import '../../../services/auth_service.dart';
 import '../../shared/dialogs/error_dialog.dart';
 import '../../shared/dialogs/loader_dialog.dart';
@@ -30,17 +31,20 @@ class _SignInScreenState extends State<SignInScreen> {
     if (!formKey.currentState!.validate()) {
       return;
     }
-    final failure = await showLoader(
+    final signInResult = await showLoader(
       context,
       authService.signIn(
         email: email,
         password: password,
       ),
     );
-
     if (!mounted) {
       return;
     }
+    final failure = switch (signInResult) {
+      Success() => null,
+      Error(value: final failure) => failure,
+    };
     if (failure != null) {
       final errorData = failure.errorData;
       return ErrorDialog.show(
@@ -49,7 +53,7 @@ class _SignInScreenState extends State<SignInScreen> {
         icon: errorData.icon,
       );
     }
-    context.pushNamedAndRemoveUntil(HomeScreen.route);
+    return context.pushNamedAndRemoveUntil<void>(HomeScreen.route);
   }
 
   @override
