@@ -21,7 +21,7 @@ extension type UsersService(FirebaseFirestore _db) {
     }
   }
 
-  Future<AppUser?> createUser({
+  FutureResult<AppUser> createUser({
     required String userId,
     required String username,
     required String email,
@@ -40,9 +40,9 @@ extension type UsersService(FirebaseFirestore _db) {
         'email': email,
         'photoUrl': photoUrl,
       });
-      return user;
-    } catch (_) {
-      return null;
+      return Success(user);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 }
