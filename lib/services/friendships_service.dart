@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/result.dart';
 import '../core/typedefs.dart';
 import '../entities/app_user.dart';
 import '../entities/emergency_alert.dart';
 import '../entities/friendship.dart';
 import '../extensions/document_snapshot_x.dart';
+import '../failures/failure.dart';
 
 extension type FriendshipsService(FirebaseFirestore _db) {
   CollectionReference<Json> get _collection => _db.collection('friendships');
@@ -103,14 +105,12 @@ extension type FriendshipsService(FirebaseFirestore _db) {
     );
   }
 
-  Future<
-      ({
-        List<AppUser>? friends,
-        Map<String, String>? friendships,
-      })> getFriends(String userId) async {
+  Future<List<({String friendshipId, AppUser user})>?> getFriends(
+      String userId) async {
     try {
       final friendships = await _friendsIds(userId);
       final friendsIds = friendships.entries.map((e) => e.key).toList();
+
       final query = _db.collection('users').where('id', whereIn: friendsIds);
       final snapshot = await query.get();
       return (
@@ -121,17 +121,21 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         friendships: friendships,
       );
     } catch (_) {
-      return (friends: null, friendships: null);
+      return null;
     }
   }
 
-  Future<
-      ({
-        List<AppUser>? users,
-        Map<String, String>? friendsIds,
-        Map<String, String>? pendingsRequestsSentIds,
-      })> searchUsers(String userId) async {
+  Future<Result<({AppUser user, Friendship? friendship})?, Failure>> searchUser(
+    String email,
+  ) async {
     try {
+      _collection
+          .where('users', arrayContains: userId)
+          .where('users', arrayContains: myuserId)
+          .where('status', isEqualTo: FriendshipStatus.active.name)
+          .limit(1)
+          .get();
+
       final friendIds = await _friendsIds(userId);
       final pendingsFriendshipsSentIds = await _pendingFriendshipRequestSendIds(
         userId,
@@ -142,12 +146,8 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         friendsIds: friendIds,
         pendingsRequestsSentIds: pendingsFriendshipsSentIds,
       );
-    } catch (_) {
-      return (
-        users: null,
-        friendsIds: null,
-        pendingsRequestsSentIds: null,
-      );
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -264,7 +264,14 @@ extension type FriendshipsService(FirebaseFirestore _db) {
       if (!snapshot.exists) {
         return false;
       }
-      await ref.delete();
+      // TODO
+      await ref.set(
+        {
+          'status': FriendshipStatus.archived.name,
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
       return true;
     } catch (_) {
       return false;

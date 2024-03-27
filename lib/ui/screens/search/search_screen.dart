@@ -6,13 +6,33 @@ import '../../../../../services/auth_service.dart';
 import '../../../../../services/friendships_service.dart';
 import '../../../../../services/users_service.dart';
 import '../../../entities/app_user.dart';
+import '../../../entities/friendship.dart';
 import '../../shared/dialogs/loader_dialog.dart';
 import '../../shared/widgets/user_list.dart';
 import '../../shared/widgets/user_tile.dart';
 import '../home/tabs/requests/widgets/request_tile.dart';
 import 'widgets/app_bar.dart';
 
-enum SearchState { initial, searching, searched }
+// enum SearchState { initial, searching, searched }
+
+sealed class SearchState {}
+
+class DefaultSearchState extends SearchState {}
+
+class SearchingSearchState extends SearchState {
+  final String email;
+
+  SearchingSearchState({required this.email});
+}
+
+class ResultSearchState extends SearchState {
+  final AppUser user;
+  final Friendship? friendship;
+
+  ResultSearchState({required this.user, required this.friendship});
+}
+
+class ErrrorSearchState extends SearchState {}
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
