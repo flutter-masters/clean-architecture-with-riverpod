@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../core/result.dart';
+import '../core/typedefs.dart';
 import '../entities/app_user.dart';
 import '../failures/auth_failure.dart';
 
 extension type AuthService(FirebaseAuth auth) {
-  Future<SignInAuthFailure?> signIn({
+  FutureAuthResult<void, SignInAuthFailure> signIn({
     required String email,
     required String password,
   }) async {
@@ -14,36 +16,49 @@ extension type AuthService(FirebaseAuth auth) {
         password: password,
       );
       if (credentials.user == null) {
-        return SignInAuthFailure.userNotFound;
+        return Error(SignInAuthFailure.userNotFound);
       }
-      return null;
+      return Success(null);
     } on FirebaseAuthException catch (e) {
-      return SignInAuthFailure.values.firstWhere(
-        (failure) => failure.code == e.code,
-        orElse: () => SignInAuthFailure.unknown,
+      return Error(
+        SignInAuthFailure.values.firstWhere(
+          (failure) => failure.code == e.code,
+          orElse: () => SignInAuthFailure.unknown,
+        ),
       );
     } catch (_) {
-      return SignInAuthFailure.unknown;
+      return Error(SignInAuthFailure.unknown);
     }
   }
 
-  Future<SignUpAuthFailure?> signUp({
+  FutureAuthResult<AppUser, SignUpAuthFailure> signUp({
     required String email,
     required String password,
   }) async {
     try {
-      await auth.createUserWithEmailAndPassword(
+      final credentials = await auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      return null;
+      final user = credentials.user;
+      if (user == null) {
+        return Error(SignUpAuthFailure.userNotCreate);
+      }
+      return Success(
+        AppUser(
+          id: user.uid,
+          username: user.displayName,
+          email: email,
+          photoUrl: user.photoURL,
+        ),
+      );
     } on FirebaseAuthException catch (e) {
-      return SignUpAuthFailure.values.firstWhere(
+      return Error(SignUpAuthFailure.values.firstWhere(
         (failure) => failure.code == e.code,
         orElse: () => SignUpAuthFailure.unknown,
-      );
+      ));
     } catch (_) {
-      return SignUpAuthFailure.unknown;
+      return Error(SignUpAuthFailure.unknown);
     }
   }
 
