@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import '../../../../shared/extensions/build_context.dart';
 import '../../../../shared/theme/palette.dart';
 
-class HomeTab extends StatelessWidget {
+class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
 
+  @override
+  State<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     return Material(
