@@ -1,88 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/result.dart';
 import '../core/typedefs.dart';
-import '../entities/app_user.dart';
 import '../entities/emergency_alert.dart';
 import '../entities/friendship.dart';
 import '../extensions/document_snapshot_x.dart';
+import '../failures/failure.dart';
 
 extension type FriendshipsService(FirebaseFirestore _db) {
   CollectionReference<Json> get _collection => _db.collection('friendships');
 
-  Future<Map<String, String>> _friendsIds(String userId) async {
+  Future<List<Friendship>> _friendships(String userId) async {
     try {
       final snapshot = await _collection
           .where('status', isEqualTo: FriendshipStatus.active.name)
           .where('users', arrayContains: userId)
           .get();
-      final pendingsRequests =
-          snapshot.docs.map((e) => e.toFriendship()).toList();
-      final friendships = <String, String>{};
-      for (var pendingsRequest in pendingsRequests) {
-        final id = pendingsRequest.users.firstWhere((id) => id != userId);
-        friendships.addAll({id: pendingsRequest.id});
-      }
-      return friendships;
-    } catch (_) {
-      return {};
-    }
-  }
-
-  Future<Map<String, String>> _pendingFriendshipRequestIds(
-    String userId,
-  ) async {
-    try {
-      final snapshot = await _collection
-          .where('status', isEqualTo: FriendshipStatus.pending.name)
-          .where('users', arrayContains: userId)
-          .where('sender', isNotEqualTo: userId)
-          .get();
-      final pendingsRequests =
-          snapshot.docs.map((e) => e.toFriendship()).toList();
-      final friendships = <String, String>{};
-      for (var pendingsRequest in pendingsRequests) {
-        final id = pendingsRequest.users.firstWhere((id) => id != userId);
-        friendships.addAll({id: pendingsRequest.id});
-      }
-      return friendships;
-    } catch (_) {
-      return {};
-    }
-  }
-
-  Future<Map<String, String>> _pendingFriendshipRequestSendIds(
-    String userId,
-  ) async {
-    try {
-      final snapshot = await _collection
-          .where('status', isEqualTo: FriendshipStatus.pending.name)
-          .where('users', arrayContains: userId)
-          .where('sender', isEqualTo: userId)
-          .get();
-      final pendingsRequests =
-          snapshot.docs.map((e) => e.toFriendship()).toList();
-      final friendships = <String, String>{};
-      for (var pendingsRequest in pendingsRequests) {
-        final id = pendingsRequest.users.firstWhere((id) => id != userId);
-        friendships.addAll({id: pendingsRequest.id});
-      }
-      return friendships;
-    } catch (_) {
-      return {};
-    }
-  }
-
-  Future<List<AppUser>?> _filterUsers(
-    String userId,
-    List<String>? filterIds,
-  ) async {
-    try {
-      final query = _db.collection('users').where('id', whereIn: filterIds);
-      final snapshot = await query.get();
-      final docs = snapshot.docs.where((doc) => doc.id != userId).toList();
-      return docs.map((e) => e.toAppUser()).toList();
-    } catch (_) {
-      return null;
+      return snapshot.docs.map((e) => e.toFriendship()).toList();
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -93,119 +29,114 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         .orderBy('createdAt', descending: true)
         .limit(1)
         .snapshots();
-
     return query.expand<EmergencyAlert>(
-      (event) => event.docs.map(
-        (doc) {
-          return doc.toEmergencyAlert();
-        },
-      ).toList(),
+      (event) => event.docs.map((doc) => doc.toEmergencyAlert()).toList(),
     );
   }
 
-  Future<
-      ({
-        List<AppUser>? friends,
-        Map<String, String>? friendships,
-      })> getFriends(String userId) async {
+  FutureResult<List<FriendshipsData>> getFriends(String userId) async {
     try {
-      final friendships = await _friendsIds(userId);
-      final friendsIds = friendships.entries.map((e) => e.key).toList();
+      final friendships = await _friendships(userId);
+      final friendsIds = friendships
+          .map((e) => e.users.firstWhere((id) => id != userId))
+          .toList();
+      if (friendsIds.isEmpty) {
+        return Success([]);
+      }
       final query = _db.collection('users').where('id', whereIn: friendsIds);
       final snapshot = await query.get();
-      return (
-        friends: snapshot.docs
-            .where((e) => e.exists)
-            .map((doc) => doc.toAppUser())
-            .toList(),
-        friendships: friendships,
-      );
-    } catch (_) {
-      return (friends: null, friendships: null);
-    }
-  }
-
-  Future<
-      ({
-        List<AppUser>? users,
-        Map<String, String>? friendsIds,
-        Map<String, String>? pendingsRequestsSentIds,
-      })> searchUsers(String userId) async {
-    try {
-      final friendIds = await _friendsIds(userId);
-      final pendingsFriendshipsSentIds = await _pendingFriendshipRequestSendIds(
-        userId,
-      );
-      final users = await _filterUsers(userId, null);
-      return (
-        users: users,
-        friendsIds: friendIds,
-        pendingsRequestsSentIds: pendingsFriendshipsSentIds,
-      );
-    } catch (_) {
-      return (
-        users: null,
-        friendsIds: null,
-        pendingsRequestsSentIds: null,
-      );
-    }
-  }
-
-  Future<bool> deleteFriendship(String friendshipId) async {
-    try {
-      final ref = _collection.doc(friendshipId);
-      final snapshot = await ref.get();
-      if (!snapshot.exists) {
-        return false;
+      final users = snapshot.docs
+          .where((e) => e.exists)
+          .map((doc) => doc.toAppUser())
+          .toList();
+      final result = <FriendshipsData>[];
+      for (final user in users) {
+        final friendship = friendships.firstWhere(
+          (friendship) => friendship.users.contains(user.id),
+        );
+        result.add((user: user, friendship: friendship));
       }
-      await ref.set(
-        {
-          'status': FriendshipStatus.archived.name,
-          'updatedAt': DateTime.now().toIso8601String(),
-        },
-        SetOptions(merge: true),
-      );
-
-      return true;
-    } catch (_) {
-      return false;
+      return Success(result);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 
-  Future<
-      ({
-        List<AppUser>? users,
-        Map<String, String>? friendships,
-      })> getFriendshipRequests(String userId) async {
+  FutureResult<FriendshipsData> searchUsers(String userId, String email) async {
     try {
-      final pendingsRequests = await _pendingFriendshipRequestIds(userId);
-      if (pendingsRequests.isEmpty) {
-        return (users: null, friendships: null);
+      final usersSnapshot = await _db
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      final userDocs = usersSnapshot.docs;
+      if (userDocs.isEmpty) {
+        return Error(Failure(message: 'No result found...'));
       }
-      final friendshipsRequests = await _filterUsers(
-        userId,
-        pendingsRequests.entries.map((e) => e.key).toList(),
-      );
-      return (users: friendshipsRequests, friendships: pendingsRequests);
-    } catch (_) {
-      return (users: null, friendships: null);
+      final user = userDocs.first.toAppUser();
+      final friendshipsSnapshot =
+          await _collection.where('users', arrayContains: user.id).get();
+      final friendshipsDocs = friendshipsSnapshot.docs;
+      Friendship? friendship;
+      if (friendshipsDocs.isNotEmpty) {
+        friendship = friendshipsSnapshot.docs
+            .firstWhere((doc) => (doc['users'] as List).contains(userId))
+            .toFriendship();
+      }
+      return Success((user: user, friendship: friendship));
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 
-  Future<Friendship?> sendFriendshipRequest({
-    required AppUser sender,
+  FutureResult<List<FriendshipsData>> getFriendshipRequests(
+      String userId) async {
+    try {
+      final snapshot = await _collection
+          .where('status', isEqualTo: FriendshipStatus.pending.name)
+          .where('users', arrayContains: userId)
+          .where('sender', isNotEqualTo: userId)
+          .get();
+      final friendships = snapshot.docs.map((e) => e.toFriendship()).toList();
+      final friendsIds = friendships
+          .map((e) => e.users.firstWhere((id) => id != userId))
+          .toList();
+      if (friendsIds.isEmpty) {
+        return Success([]);
+      }
+      final query = _db.collection('users').where('id', whereIn: friendsIds);
+      final userSnapshot = await query.get();
+      final users = userSnapshot.docs
+          .where((e) => e.exists)
+          .map((doc) => doc.toAppUser())
+          .toList();
+      final result = <FriendshipsData>[];
+      for (final user in users) {
+        final friendship = friendships.firstWhere(
+          (friendship) => friendship.users.contains(user.id),
+        );
+        result.add((user: user, friendship: friendship));
+      }
+      return Success(result);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
+    }
+  }
+
+  FutureResult<Friendship> sendFriendshipRequest({
+    required String sender,
     required String recipientId,
   }) async {
     try {
       final snapshot = await _collection
           .where('users', arrayContains: recipientId)
-          .where('sender', isEqualTo: sender.id)
+          .where('sender', isEqualTo: sender)
           .get();
 
       final docs = snapshot.docs;
       final data = <String, dynamic>{
-        'users': [sender.id, recipientId],
-        'sender': sender.id,
+        'users': [sender, recipientId],
+        'sender': sender,
         'status': FriendshipStatus.pending.name,
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
@@ -213,7 +144,7 @@ extension type FriendshipsService(FirebaseFirestore _db) {
 
       if (docs.isEmpty) {
         final ref = await _collection.add(data);
-        return (await ref.get()).toFriendship();
+        return Success((await ref.get()).toFriendship());
       }
 
       final friendship = docs.first.toFriendship();
@@ -221,28 +152,34 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         FriendshipStatus.active,
         FriendshipStatus.pending,
       ].contains(friendship.status)) {
-        return null;
+        return Error(
+          Failure(message: 'Friendship already exists, is pending or accepted'),
+        );
       }
       await _collection.doc(friendship.id).set(data, SetOptions(merge: true));
-      return Friendship(
-        id: friendship.id,
-        users: friendship.users,
-        sender: sender.id,
-        status: FriendshipStatus.pending,
-        createdAt: friendship.createdAt,
-        updatedAt: DateTime.timestamp(),
+      return Success(
+        Friendship(
+          id: friendship.id,
+          users: friendship.users,
+          sender: sender,
+          status: FriendshipStatus.pending,
+          createdAt: friendship.createdAt,
+          updatedAt: DateTime.timestamp(),
+        ),
       );
-    } catch (_) {
-      return null;
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 
-  Future<bool> acceptFriendshipRequest(String friendshipId) async {
+  FutureResult<void> acceptFriendshipRequest(
+    String friendshipId,
+  ) async {
     try {
       final ref = _collection.doc(friendshipId);
       final snapshot = await ref.get();
       if (!snapshot.exists) {
-        return false;
+        return Error(Failure(message: 'Friendship no exists'));
       }
       await ref.set(
         {
@@ -251,32 +188,32 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         },
         SetOptions(merge: true),
       );
-      return true;
-    } catch (_) {
-      return false;
+      return Success(null);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 
-  Future<bool> rejectFriendshipRequest(String friendshipId) async {
+  FutureResult<void> rejectFriendshipRequest(String friendshipId) async {
     try {
       final ref = _collection.doc(friendshipId);
       final snapshot = await ref.get();
       if (!snapshot.exists) {
-        return false;
+        return Error(Failure(message: 'Friendship no exists'));
       }
       await ref.delete();
-      return true;
-    } catch (_) {
-      return false;
+      return Success(null);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 
-  Future<bool> cancelFriendshipRequest(String friendshipId) async {
+  FutureResult<void> cancelFriendshipRequest(String friendshipId) async {
     try {
       final ref = _collection.doc(friendshipId);
       final snapshot = await ref.get();
       if (!snapshot.exists) {
-        return false;
+        return Error(Failure(message: 'Friendship no exists'));
       }
       await ref.set(
         {
@@ -285,16 +222,21 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         },
         SetOptions(merge: true),
       );
-      return true;
-    } catch (_) {
-      return false;
+      return Success(null);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 
-  Future<bool> sendAlert(String userId) async {
+  FutureResult<void> sendAlert(String userId) async {
     try {
-      final friends = await _friendsIds(userId);
-      final friendsIds = friends.entries.map((e) => e.key).toList();
+      final friendships = await _friendships(userId);
+      final friendsIds = friendships
+          .map((e) => e.users.firstWhere((id) => id != userId))
+          .toList();
+      if (friendsIds.isEmpty) {
+        return Error(Failure(message: 'You do not have friends'));
+      }
       final batch = _db.batch();
       for (final recipient in friendsIds) {
         batch.set(
@@ -307,9 +249,9 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         );
       }
       await batch.commit();
-      return true;
-    } catch (_) {
-      return false;
+      return Success(null);
+    } catch (e) {
+      return Error(Failure(message: e.toString()));
     }
   }
 }
