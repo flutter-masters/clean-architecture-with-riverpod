@@ -1,4 +1,4 @@
-package dev.fluttermasters.clean_architecture
+package dev.fluttermasters.alertify
 
 import io.flutter.embedding.android.FlutterActivity
 

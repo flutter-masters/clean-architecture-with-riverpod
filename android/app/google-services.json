@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:248510843816:android:fd1653347d7c2f32eeab9d",
         "android_client_info": {
-          "package_name": "dev.fluttermasters.clean_architecture"
+          "package_name": "dev.fluttermasters.alertify"
         }
       },
       "oauth_client": [],
