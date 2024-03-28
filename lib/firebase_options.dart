@@ -59,10 +59,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB9BeNkCXnJK7IY1PWCI_HVK03hPwP5iuU',
-    appId: '1:248510843816:ios:f48094636125ce17eeab9d',
+    appId: '1:248510843816:ios:a002a54c3ae86659eeab9d',
     messagingSenderId: '248510843816',
     projectId: 'clean-architecture-riverpod',
     storageBucket: 'clean-architecture-riverpod.appspot.com',
-    iosBundleId: 'dev.fluttermasters.cleanArchitecture',
+    iosBundleId: 'dev.fluttermasters.alertify',
   );
 }
