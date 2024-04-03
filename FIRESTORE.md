@@ -123,6 +123,7 @@ service cloud.firestore {
         // Restringir lectura de alertas al remitente o destinatario
         match /alerts/{alertId} {
             allow read: if isCurrentUser(resource.data.sender) || isCurrentUser(resource.data.recipient);
+            allow create: if isCurrentUser(request.data.sender);
         }
     }
 }
