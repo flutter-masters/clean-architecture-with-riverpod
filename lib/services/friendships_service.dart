@@ -75,8 +75,10 @@ extension type FriendshipsService(FirebaseFirestore _db) {
         return Error(Failure(message: 'No result found...'));
       }
       final user = userDocs.first.toAppUser();
-      final friendshipsSnapshot =
-          await _collection.where('users', arrayContains: user.id).get();
+      final friendshipsSnapshot = await _collection
+          .where('status', isNotEqualTo: FriendshipStatus.archived.name)
+          .where('users', arrayContains: user.id)
+          .get();
       final friendships =
           friendshipsSnapshot.docs.map((e) => e.toFriendship()).toList();
       Friendship? friendship;
