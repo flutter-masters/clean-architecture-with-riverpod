@@ -39,12 +39,15 @@ extension type FriendshipsService(FirebaseFirestore _db) {
     try {
       final friendships = await _friendships(userId);
       final friendsIds = friendships
-          .map((e) => e.users.firstWhere((id) => id != userId))
+          .map((e) => e.users.firstWhereOrNull((id) => id != userId))
           .toList();
       if (friendsIds.isEmpty) {
         return Success([]);
       }
-      final query = _db.collection('users').where('id', whereIn: friendsIds);
+      final query = _db
+          .collection('users')
+          .orderBy('email')
+          .where('id', whereIn: friendsIds);
       final snapshot = await query.get();
       final users = snapshot.docs
           .where((e) => e.exists)
