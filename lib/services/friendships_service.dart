@@ -6,6 +6,7 @@ import '../entities/emergency_alert.dart';
 import '../entities/friendship.dart';
 import '../extensions/document_snapshot_x.dart';
 import '../failures/failure.dart';
+import '../ui/shared/extensions/iterable_x.dart';
 
 extension type FriendshipsService(FirebaseFirestore _db) {
   CollectionReference<Json> get _collection => _db.collection('friendships');
@@ -80,7 +81,9 @@ extension type FriendshipsService(FirebaseFirestore _db) {
           friendshipsSnapshot.docs.map((e) => e.toFriendship()).toList();
       Friendship? friendship;
       if (friendships.isNotEmpty) {
-        friendship = friendships.firstWhere((f) => f.users.contains(userId));
+        friendship = friendships.firstWhereOrNull(
+          (f) => f.users.contains(userId),
+        );
       }
       return Success((user: user, friendship: friendship));
     } catch (e) {
