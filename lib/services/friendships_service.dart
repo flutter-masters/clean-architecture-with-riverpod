@@ -52,7 +52,7 @@ extension type FriendshipsService(FirebaseFirestore _db) {
           .toList();
       final result = <FriendshipsData>[];
       for (final user in users) {
-        final friendship = friendships.firstWhere(
+        final friendship = friendships.firstWhereOrNull(
           (friendship) => friendship.users.contains(user.id),
         );
         result.add((user: user, friendship: friendship));
