@@ -1,0 +1,35 @@
+name: fluttermasters
+workflows:
+  flutter_masters_prod: 
+    environment:
+     groups:
+       - "Firebase"
+     flutter: stable
+     java: 11
+     ios_signing: 
+       certificates:
+         - FlutterMasterDevelopCertificate
+       provisioning_profiles:
+         - FlutterMasterProvisionProfile
+    scripts:
+      - name: INIT KEYCHAIN
+        script: keychain initialize
+      - name: ADD CERTIFICATES
+        script: keychain add-certificates
+      - name: SET PROVISIONING PROFILES
+        script: xcode-project use-profiles
+      - name: GENERATE APK
+        script: flutter build apk --release
+      - name: GENERATE APK
+        script: flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist
+    publishing:
+
+     firebase:
+      firebase_service_account: echo "$FIREBASE_TOKEN" | base64 --decode
+      android:
+       artifact_type: apk
+       app_id: 1:248510843816:android:fd1653347d7c2f32eeab9d
+      ios:
+       app_id: 1:248510843816:ios:a002a54c3ae86659eeab9d
+       groups:
+         - "testers"
