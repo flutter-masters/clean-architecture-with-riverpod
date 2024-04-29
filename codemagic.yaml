@@ -18,7 +18,7 @@ workflows:
      branch_patterns:
        - include: true
          source: true
-         pattern: github_actions
+         pattern: github-actions
 
     scripts:
       - name: INIT KEYCHAIN
