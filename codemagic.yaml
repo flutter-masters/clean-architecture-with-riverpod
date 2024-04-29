@@ -11,6 +11,15 @@ workflows:
          - FlutterMasterDevelopCertificate
        provisioning_profiles:
          - FlutterMasterProvisionProfile
+
+    triggering:
+     events:
+        - "push"
+     branch_patterns:
+       - include: true
+         source: true
+         pattern: github_actions
+
     scripts:
       - name: INIT KEYCHAIN
         script: keychain initialize
@@ -20,7 +29,7 @@ workflows:
         script: xcode-project use-profiles
       - name: GENERATE APK
         script: flutter build apk --release
-      - name: GENERATE APK
+      - name: GENERATE IPA
         script: flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist
     publishing:
 
@@ -29,6 +38,7 @@ workflows:
       android:
        artifact_type: apk
        app_id: 1:248510843816:android:fd1653347d7c2f32eeab9d
+      
       ios:
        app_id: 1:248510843816:ios:a002a54c3ae86659eeab9d
        groups:
