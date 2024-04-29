@@ -4,7 +4,6 @@ workflows:
     environment:
      groups:
        - "Firebase"
-       
      flutter: stable
      java: 11
      ios_signing: 
