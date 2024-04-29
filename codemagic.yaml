@@ -4,6 +4,7 @@ workflows:
     environment:
      groups:
        - "Firebase"
+       
      flutter: stable
      java: 11
      ios_signing: 
@@ -31,15 +32,20 @@ workflows:
         script: flutter build apk --release
       - name: GENERATE IPA
         script: flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist
-    publishing:
 
+    artifacts:
+      -  build/ios/ipa/Apps/clean_architecture.ipa
+      -  build/app/outputs/flutter-apk/app-release.apk
+      
+    publishing:
      firebase:
       firebase_service_account: echo "$FIREBASE_TOKEN" | base64 --decode
       android:
        artifact_type: apk
-       app_id: 1:248510843816:android:fd1653347d7c2f32eeab9d
+       app_id: 1:927233104549:android:56747debe9c0c55fdc8b4c
+      
       
       ios:
-       app_id: 1:248510843816:ios:a002a54c3ae86659eeab9d
+       app_id: 1:927233104549:ios:6e7663cbe53d4358dc8b4c
        groups:
          - "testers"
