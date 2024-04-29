@@ -39,7 +39,7 @@ workflows:
       
     publishing:
      firebase:
-      firebase_service_account: echo "$FIREBASE_TOKEN" | base64 --decode
+      firebase_service_account: $FIREBASE_SERVICE_ACCOUNT
       android:
        artifact_type: apk
        app_id: 1:927233104549:android:56747debe9c0c55fdc8b4c
